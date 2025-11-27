@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuración del seed
+// Para ejecutar: npm run prisma:seed
+
+datasource db {
+  provider = "sqlserver"
+  // Para usar PostgreSQL, cambia a: provider = "postgresql"
+  // Para usar MySQL, cambia a: provider = "mysql"
+  // Para usar SQLite, cambia a: provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id          Int      @id @default(autoincrement())
+  nombre      String   // Ejemplo: "8", "7", "6", etc.
+  sexo        String   // "M" o "F"
+  descripcion String?
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  jugadores   Jugador[]
+  
+  @@unique([nombre, sexo])
+  @@index([nombre, sexo])
+}
+
+model Jugador {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  puntos      Int      @default(0)
+  juegos      Int      @default(0)
+  imagen      String?  // URL o path de la imagen
+  categoriaId Int
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  partidosJugador PartidoJugador[]
+  
+  @@index([categoriaId])
+  @@index([puntos])
+  @@index([activo])
+}
+
+model Competencia {
+  id              Int      @id @default(autoincrement())
+  nombre          String   @map("CompetenciaNombre")
+  fechaInicio     DateTime @map("CompetenciaFechaInicio")
+  fechaFin        DateTime @map("CompetenciaFechaFin")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  partidos        Partido[]
+  
+  @@map("competencia")
+}
+
+model Partido {
+  id              Int      @id @default(autoincrement()) @map("PartidoId")
+  fecha           DateTime @map("PartidoFecha")
+  horaInicio      DateTime? @map("PartidoHoraInicio")
+  horaFin         DateTime? @map("PartidoHoraFin")
+  categoria       String   @map("PartidoCategoria") // "1" a "8" o "inicial"
+  estado          String   @map("PartidoEstado")
+  canchaId        Int?     @map("CanchaId")
+  sexo            String   @map("PartidoSexo") // "M" o "F"
+  competenciaId   Int?     @map("CompetenciaId")
+  competencia     Competencia? @relation(fields: [competenciaId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  partidosJugador PartidoJugador[]
+  
+  @@index([categoria])
+  @@index([sexo])
+  @@index([fecha])
+  @@index([competenciaId])
+  @@map("partido")
+}
+
+model PartidoJugador {
+  id              Int      @id @default(autoincrement())
+  partidoId       Int      @map("PartidoId")
+  partido         Partido  @relation(fields: [partidoId], references: [id])
+  jugadorId       Int      @map("ClienteId")
+  jugador         Jugador  @relation(fields: [jugadorId], references: [id])
+  resultado       String?  // "G" (Ganó), "P" (Perdió), etc.
+  puntos          Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([partidoId, jugadorId])
+  @@index([partidoId])
+  @@index([jugadorId])
+  @@index([resultado])
+  @@map("partidojugador")
+}
+

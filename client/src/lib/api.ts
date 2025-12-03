@@ -1,12 +1,14 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://181.123.61.216:3011/api";
+  import.meta.env.VITE_API_URL ||
+  "https://nonrevokable-ramlike-catalina.ngrok-free.dev/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 

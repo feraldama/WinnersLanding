@@ -84,5 +84,13 @@ export default defineConfig({
   server: {
     port: 3010,
     open: true,
+    proxy: {
+      "/api": {
+        target: "http://181.123.61.216:3011",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path,
+      },
+    },
   },
 });

@@ -4,6 +4,12 @@ import { rankingsController } from "../controllers/rankingsController";
 
 export const rankingsRouter = Router();
 
+// Obtener categorías que tienen datos
+rankingsRouter.get(
+  "/categorias-con-datos",
+  asyncHandler(rankingsController.getCategoriasConDatos)
+);
+
 // Obtener ranking global con filtros (categoría y sexo)
 rankingsRouter.get(
   "/global",

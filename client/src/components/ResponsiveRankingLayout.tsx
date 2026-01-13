@@ -7,8 +7,16 @@ import imgLogoPng from "../assets/909219e93634575c7d895a9f34614991a378e027.png";
 import imgGeminiGeneratedImage66Ttvb66Ttvb66Tt2 from "../assets/ff4a25f7759c9ebb9bccc7cbb2466500321062d4.png";
 import imgGeminiGeneratedImageIpifk3Ipifk3Ipif2 from "../assets/f581400bf2952dea157440f81b69472379930a7e.png";
 import imgGeminiGeneratedImageJrc05Ljrc05Ljrc02 from "../assets/e95adb9ef364b88069c91c2e127d1d0c02593af4.png";
-import { getRankingGlobal } from "../services/ranking.service";
-import type { JugadorRanking } from "../services/ranking.service";
+import {
+  getRankingGlobal,
+  getRankingCompetencia,
+  getCategoriasConDatos,
+} from "../services/ranking.service";
+import type {
+  JugadorRanking,
+  CategoriaConDatos,
+} from "../services/ranking.service";
+import { getCompetencias } from "../services/competencia.service";
 
 function NavigationMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -108,6 +116,7 @@ function NavigationMenu() {
 }
 
 interface RankingTableProps {
+  title: string;
   categoria: string;
   sexo: string;
   players: JugadorRanking[];
@@ -117,6 +126,7 @@ interface RankingTableProps {
 }
 
 function RankingTable({
+  title,
   categoria,
   sexo,
   players,
@@ -133,6 +143,9 @@ function RankingTable({
       {/* Title */}
       <div className="pb-3">
         <p className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-xl text-center uppercase">
+          {title}
+        </p>
+        <p className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-sm text-center uppercase mt-1">
           Categoría: {categoria} - {sexoTexto}
         </p>
       </div>
@@ -186,9 +199,39 @@ function RankingTable({
                     {player.position || index + 1}
                   </p>
                 </div>
-                <p className="font-['Roboto:Regular',sans-serif] text-white text-sm flex-1 text-center">
-                  {player.nombre}
-                </p>
+                <div className="font-['Roboto:Regular',sans-serif] text-white text-sm flex-1 text-center flex items-center justify-center gap-1">
+                  <span>{player.nombre}</span>
+                  {(player.torneosCampeon ?? 0) > 0 && (
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({
+                        length: Number(player.torneosCampeon) || 0,
+                      }).map((_, i) => (
+                        <span
+                          key={`campeon-${i}`}
+                          className="text-yellow-400"
+                          title={`${player.torneosCampeon} torneo(s) como campeón`}
+                        >
+                          🏆
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                  {(player.torneosVicecampeon ?? 0) > 0 && (
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({
+                        length: Number(player.torneosVicecampeon) || 0,
+                      }).map((_, i) => (
+                        <span
+                          key={`vicecampeon-${i}`}
+                          className="text-gray-300"
+                          title={`${player.torneosVicecampeon} torneo(s) como vicecampeón`}
+                        >
+                          🥈
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
                 <p className="font-['Roboto:Regular',sans-serif] text-white text-sm w-16 text-center">
                   {player.puntos}
                 </p>
@@ -249,48 +292,128 @@ function QRPanel() {
 }
 
 export default function ResponsiveRankingLayout() {
-  const [rankingData, setRankingData] = useState<JugadorRanking[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [rankingGlobalData, setRankingGlobalData] = useState<JugadorRanking[]>(
+    []
+  );
+  const [rankingCompetenciaData, setRankingCompetenciaData] = useState<
+    JugadorRanking[]
+  >([]);
+  const [isLoadingGlobal, setIsLoadingGlobal] = useState(false);
+  const [isLoadingCompetencia, setIsLoadingCompetencia] = useState(false);
   const [categoria, setCategoria] = useState("8");
   const [sexo, setSexo] = useState("M");
+  const [categoriasConDatos, setCategoriasConDatos] = useState<
+    CategoriaConDatos[]
+  >([]);
+  const [competenciaSeleccionada, setCompetenciaSeleccionada] = useState<
+    string | number
+  >("");
 
-  // Generar todas las combinaciones de categoría y sexo
-  const combinaciones = React.useMemo(() => {
-    const combos: Array<{ categoria: string; sexo: string }> = [];
-    for (let cat = 8; cat >= 1; cat--) {
-      combos.push({ categoria: cat.toString(), sexo: "M" });
-      combos.push({ categoria: cat.toString(), sexo: "F" });
-    }
-    return combos;
+  // Obtener categorías que tienen datos y competencias
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Cargar categorías con datos
+        const categorias = await getCategoriasConDatos();
+        setCategoriasConDatos(categorias);
+        // Si hay categorías, establecer la primera como inicial
+        if (categorias.length > 0) {
+          setCategoria(categorias[0].categoria.toString());
+          setSexo(categorias[0].sexo);
+        }
+
+        // Cargar competencias y seleccionar la última (ya vienen ordenadas por fechaInicio desc del backend)
+        const competenciasResponse = await getCompetencias({
+          limit: 1,
+        });
+        if (competenciasResponse.data.length > 0) {
+          setCompetenciaSeleccionada(competenciasResponse.data[0].id);
+        }
+      } catch (error) {
+        console.error("❌ Error al obtener datos iniciales:", error);
+      }
+    };
+
+    loadInitialData();
   }, []);
+
+  // Generar combinaciones solo de categorías que tienen datos
+  const combinaciones = React.useMemo(() => {
+    return categoriasConDatos.map((cat) => ({
+      categoria: cat.categoria.toString(),
+      sexo: cat.sexo,
+    }));
+  }, [categoriasConDatos]);
 
   // Índice actual en el array de combinaciones
   const [indiceActual, setIndiceActual] = useState(0);
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
   const tiempoTotal = 10000; // 10 segundos en milisegundos
 
-  // Cargar datos del ranking
+  // Cargar datos del ranking global
   useEffect(() => {
-    const loadRankingData = async () => {
-      setIsLoading(true);
+    // Solo cargar si hay combinaciones disponibles
+    if (combinaciones.length === 0) {
+      return;
+    }
+
+    const loadRankingGlobal = async () => {
+      setIsLoadingGlobal(true);
       try {
         const combo = combinaciones[indiceActual];
         const data = await getRankingGlobal(combo.categoria, combo.sexo);
-        setRankingData(data);
+        setRankingGlobalData(data);
         setCategoria(combo.categoria);
         setSexo(combo.sexo);
-      } catch (error) {
-        console.error("❌ Error al obtener ranking del backend:", error);
+      } catch (error: any) {
+        console.error("❌ Error al obtener ranking global:", error);
+        // Si es un error 404 (no hay datos), saltar a la siguiente categoría
+        if (error?.response?.status === 404) {
+          setIndiceActual((prev) => (prev + 1) % combinaciones.length);
+        }
+        setRankingGlobalData([]);
       } finally {
-        setIsLoading(false);
+        setIsLoadingGlobal(false);
       }
     };
 
-    loadRankingData();
+    loadRankingGlobal();
   }, [indiceActual, combinaciones]);
 
-  // Cambiar automáticamente cada 10 segundos
+  // Cargar datos del ranking de competencia
   useEffect(() => {
+    // Solo cargar si hay combinaciones disponibles y competencia seleccionada
+    if (combinaciones.length === 0 || !competenciaSeleccionada) {
+      return;
+    }
+
+    const loadRankingCompetencia = async () => {
+      setIsLoadingCompetencia(true);
+      try {
+        const combo = combinaciones[indiceActual];
+        const data = await getRankingCompetencia(
+          competenciaSeleccionada,
+          combo.categoria,
+          combo.sexo
+        );
+        setRankingCompetenciaData(data);
+      } catch (error: any) {
+        console.error("❌ Error al obtener ranking de competencia:", error);
+        setRankingCompetenciaData([]);
+      } finally {
+        setIsLoadingCompetencia(false);
+      }
+    };
+
+    loadRankingCompetencia();
+  }, [indiceActual, combinaciones, competenciaSeleccionada]);
+
+  // Cambiar automáticamente cada 10 segundos (solo si hay combinaciones)
+  useEffect(() => {
+    if (combinaciones.length === 0) {
+      return;
+    }
+
     const interval = setInterval(() => {
       setIndiceActual((prev) => (prev + 1) % combinaciones.length);
     }, tiempoTotal);
@@ -344,18 +467,20 @@ export default function ResponsiveRankingLayout() {
         <div className="container mx-auto px-4 pb-12">
           <div className="flex flex-wrap justify-center gap-4 lg:gap-6 items-stretch lg:flex-nowrap">
             <RankingTable
+              title="Ranking (Global)"
               categoria={categoria}
               sexo={sexo}
-              players={rankingData}
-              isLoading={isLoading}
+              players={rankingGlobalData}
+              isLoading={isLoadingGlobal}
               tiempoTranscurrido={tiempoTranscurrido}
               tiempoTotal={tiempoTotal}
             />
             <RankingTable
+              title="Ranking (En Competencia)"
               categoria={categoria}
               sexo={sexo}
-              players={rankingData}
-              isLoading={isLoading}
+              players={rankingCompetenciaData}
+              isLoading={isLoadingCompetencia}
               tiempoTranscurrido={tiempoTranscurrido}
               tiempoTotal={tiempoTotal}
             />

@@ -4,7 +4,7 @@ import axios from "axios";
 //"https://nonrevokable-ramlike-catalina.ngrok-free.dev/api";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://clinic-anthropology-gui-governing.trycloudflare.com/api";
+  "https://nonrevokable-ramlike-catalina.ngrok-free.dev/api";
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {

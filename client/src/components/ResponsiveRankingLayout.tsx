@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import svgPaths from "../imports/svg-vi2iy793k2";
 import hamburgerSvg from "../imports/svg-z8vmvlzbkt";
 import WinnerVector from "../imports/WinnerVector1";
@@ -17,6 +17,44 @@ import type {
   CategoriaConDatos,
 } from "../services/ranking.service";
 import { getCompetencias } from "../services/competencia.service";
+import { getEquipos } from "../services/equipo.service";
+import type { Equipo } from "../services/equipo.service";
+
+/**
+ * OJO con los estilos de este archivo:
+ * src/index.css es un CSS de Tailwind v4 YA COMPILADO y commiteado; Tailwind no
+ * está instalado ni corre en el build (`vite build` solamente). Por eso sólo
+ * funcionan las clases que ya existen en ese archivo: todo lo nuevo (grid,
+ * tamaños, colores de G/P) va con estilos inline a propósito.
+ * Si algún día se reinstala Tailwind, esto se puede pasar a clases.
+ */
+const estiloGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "44px minmax(90px, 1fr) minmax(110px, 1.3fr) 40px 40px 40px 52px 64px",
+  gap: "4px",
+  alignItems: "center",
+};
+
+const estiloTruncado: React.CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  minWidth: 0,
+};
+
+const estiloSelect: React.CSSProperties = {
+  backgroundColor: "#1a1a1a",
+  border: "1px solid rgba(254, 151, 9, 0.5)",
+  color: "#fe9709",
+  fontSize: "12px",
+  borderRadius: "6px",
+  padding: "6px 8px",
+  textTransform: "uppercase",
+  cursor: "pointer",
+};
+
+const centrado: React.CSSProperties = { textAlign: "center" };
 
 function NavigationMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -115,42 +153,108 @@ function NavigationMenu() {
   );
 }
 
+/** Racha de victorias: con llama a partir de 2 seguidas. */
+function Racha({ valor }: { valor: number }) {
+  if (valor <= 0) {
+    return <span style={{ color: "rgba(255,255,255,0.4)" }}>–</span>;
+  }
+  if (valor === 1) {
+    return <span>1</span>;
+  }
+  return (
+    <span
+      style={{ color: "#fe9709", whiteSpace: "nowrap" }}
+      title={`${valor} victorias seguidas`}
+    >
+      🔥{valor}
+    </span>
+  );
+}
+
 interface RankingTableProps {
-  title: string;
   categoria: string;
   sexo: string;
   players: JugadorRanking[];
   isLoading: boolean;
   tiempoTranscurrido: number;
   tiempoTotal: number;
+  vista: "global" | "competencia";
+  onVistaChange: (vista: "global" | "competencia") => void;
+  equipos: Equipo[];
+  equipoSeleccionado: string;
+  onEquipoChange: (equipoId: string) => void;
+  logoDeEquipo: (equipoId: string | number | null) => string | null;
 }
 
 function RankingTable({
-  title,
   categoria,
   sexo,
   players,
   isLoading,
   tiempoTranscurrido,
   tiempoTotal,
+  vista,
+  onVistaChange,
+  equipos,
+  equipoSeleccionado,
+  onEquipoChange,
+  logoDeEquipo,
 }: RankingTableProps) {
   const sexoTexto = sexo === "M" ? "Masculino" : "Femenino";
   const porcentaje =
     tiempoTotal > 0 ? (tiempoTranscurrido / tiempoTotal) * 100 : 0;
+  const titulo =
+    vista === "global" ? "Ranking (Global)" : "Ranking (En Competencia)";
 
   return (
-    <div className="bg-gradient-to-b from-[#2a2a2a] via-[#3a3226] to-[#876a28] backdrop-blur-sm rounded-xl p-4 w-full max-w-[480px]">
+    <div
+      className="bg-gradient-to-b from-[#2a2a2a] via-[#3a3226] to-[#876a28] backdrop-blur-sm rounded-xl p-4 w-full"
+      style={{ maxWidth: 760 }}
+    >
       {/* Title */}
       <div className="pb-3">
         <p className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-xl text-center uppercase">
-          {title}
+          {titulo}
         </p>
         <p className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-sm text-center uppercase mt-1">
           Categoría: {categoria} - {sexoTexto}
         </p>
       </div>
 
-      {/* Progress Bar */}
+      {/* Filtros */}
+      <div
+        className="flex justify-center mb-3"
+        style={{ gap: "8px", flexWrap: "wrap" }}
+      >
+        <select
+          value={vista}
+          onChange={(e) =>
+            onVistaChange(e.target.value as "global" | "competencia")
+          }
+          className="font-['Goldman:Regular',sans-serif]"
+          style={estiloSelect}
+          aria-label="Vista del ranking"
+        >
+          <option value="global">Global</option>
+          <option value="competencia">En competencia</option>
+        </select>
+        <select
+          value={equipoSeleccionado}
+          onChange={(e) => onEquipoChange(e.target.value)}
+          className="font-['Goldman:Regular',sans-serif]"
+          style={estiloSelect}
+          aria-label="Filtrar por equipo"
+        >
+          <option value="">Todos los equipos</option>
+          {equipos.map((equipo) => (
+            <option key={equipo.id} value={String(equipo.id)}>
+              {equipo.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Barra de progreso de la rotación automática */}
       <div className="mb-3 h-2 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#3a3226]">
         <div
           className="h-full bg-[#fe9709] transition-all duration-100 ease-linear rounded-full"
@@ -158,91 +262,178 @@ function RankingTable({
         />
       </div>
 
-      {/* Header */}
-      <div className="bg-[#fe9709] rounded-md px-6 py-2.5 mb-1">
-        <div className="flex justify-between items-center font-['Goldman:Regular',sans-serif] text-black text-xs">
-          <p>Posición</p>
-          <p>Jugador</p>
-          <p>Puntos</p>
-          <p>PJ</p>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 560 }}>
+          {/* Header */}
+          <div className="bg-[#fe9709] rounded-md mb-1" style={{ padding: "10px 12px" }}>
+            <div
+              className="font-['Goldman:Regular',sans-serif] text-black uppercase"
+              style={{ ...estiloGrid, fontSize: "11px" }}
+            >
+              <p style={centrado}>Pos</p>
+              <p>Jugador</p>
+              <p>Equipo</p>
+              <p style={centrado}>PJ</p>
+              <p style={centrado}>G</p>
+              <p style={centrado}>P</p>
+              <p style={centrado}>PTS</p>
+              <p style={centrado}>Racha</p>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fe9709]"></div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && players.length === 0 && (
+            <div className="text-center py-8">
+              <p className="font-['Roboto:Regular',sans-serif] text-white text-sm">
+                No hay datos disponibles
+              </p>
+            </div>
+          )}
+
+          {/* Rows */}
+          {!isLoading &&
+            players.map((player, index) => {
+              const logo = logoDeEquipo(player.equipoId);
+              return (
+                <div
+                  key={player.id || index}
+                  className={
+                    index < players.length - 1
+                      ? "border-b border-[#FE9709]"
+                      : ""
+                  }
+                  style={{ padding: "6px 12px" }}
+                >
+                  <div
+                    className="font-['Roboto:Regular',sans-serif] text-white text-sm"
+                    style={estiloGrid}
+                  >
+                    {/* Posición */}
+                    <p
+                      className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-xl"
+                      style={centrado}
+                    >
+                      {player.position || index + 1}
+                    </p>
+
+                    {/* Jugador + trofeos */}
+                    <div
+                      className="flex items-center gap-1"
+                      style={{ minWidth: 0 }}
+                    >
+                      <span style={estiloTruncado}>{player.nombre}</span>
+                      {(player.torneosCampeon ?? 0) > 0 && (
+                        <span
+                          className="flex items-center gap-0.5"
+                          style={{ flexShrink: 0 }}
+                        >
+                          {Array.from({
+                            length: Number(player.torneosCampeon) || 0,
+                          }).map((_, i) => (
+                            <span
+                              key={`campeon-${i}`}
+                              className="text-yellow-400"
+                              title={`${player.torneosCampeon} torneo(s) como campeón`}
+                            >
+                              🏆
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {(player.torneosVicecampeon ?? 0) > 0 && (
+                        <span
+                          className="flex items-center gap-0.5"
+                          style={{ flexShrink: 0 }}
+                        >
+                          {Array.from({
+                            length: Number(player.torneosVicecampeon) || 0,
+                          }).map((_, i) => (
+                            <span
+                              key={`vicecampeon-${i}`}
+                              className="text-gray-300"
+                              title={`${player.torneosVicecampeon} torneo(s) como vicecampeón`}
+                            >
+                              🥈
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Equipo */}
+                    <div
+                      className="flex items-center"
+                      style={{ minWidth: 0, gap: "6px" }}
+                    >
+                      {player.equipoNombre ? (
+                        <>
+                          {logo && (
+                            <img
+                              src={`data:image/png;base64,${logo}`}
+                              alt={player.equipoNombre}
+                              className="object-contain"
+                              style={{ width: 20, height: 20, flexShrink: 0 }}
+                            />
+                          )}
+                          <span
+                            style={{ ...estiloTruncado, fontSize: "12px" }}
+                          >
+                            {player.equipoNombre}
+                          </span>
+                        </>
+                      ) : (
+                        <span
+                          style={{
+                            color: "rgba(255,255,255,0.4)",
+                            fontSize: "12px",
+                          }}
+                        >
+                          –
+                        </span>
+                      )}
+                    </div>
+
+                    <p style={centrado}>{player.partidosJugados}</p>
+                    <p style={{ ...centrado, color: "#4ade80" }}>
+                      {player.ganados}
+                    </p>
+                    <p style={{ ...centrado, color: "#f87171" }}>
+                      {player.perdidos}
+                    </p>
+                    <p
+                      className="font-['Goldman:Regular',sans-serif]"
+                      style={{ ...centrado, color: "#fe9709" }}
+                    >
+                      {player.puntos}
+                    </p>
+                    <p style={centrado}>
+                      <Racha valor={player.racha} />
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fe9709]"></div>
-        </div>
-      )}
-
-      {/* Rows */}
-      {!isLoading && players.length === 0 && (
-        <div className="text-center py-8">
-          <p className="font-['Roboto:Regular',sans-serif] text-white text-sm">
-            No hay datos disponibles
-          </p>
-        </div>
-      )}
-
-      {!isLoading && players.length > 0 && (
-        <>
-          {players.map((player, index) => (
-            <div
-              key={player.id || index}
-              className={`px-6 py-1 bg-[rgba(255,0,0,0)] ${
-                index < players.length - 1 ? "border-b border-[#FE9709]" : ""
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-0.5 min-w-[50px]">
-                  <p className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-xl">
-                    {player.position || index + 1}
-                  </p>
-                </div>
-                <div className="font-['Roboto:Regular',sans-serif] text-white text-sm flex-1 text-center flex items-center justify-center gap-1">
-                  <span>{player.nombre}</span>
-                  {(player.torneosCampeon ?? 0) > 0 && (
-                    <span className="flex items-center gap-0.5">
-                      {Array.from({
-                        length: Number(player.torneosCampeon) || 0,
-                      }).map((_, i) => (
-                        <span
-                          key={`campeon-${i}`}
-                          className="text-yellow-400"
-                          title={`${player.torneosCampeon} torneo(s) como campeón`}
-                        >
-                          🏆
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                  {(player.torneosVicecampeon ?? 0) > 0 && (
-                    <span className="flex items-center gap-0.5">
-                      {Array.from({
-                        length: Number(player.torneosVicecampeon) || 0,
-                      }).map((_, i) => (
-                        <span
-                          key={`vicecampeon-${i}`}
-                          className="text-gray-300"
-                          title={`${player.torneosVicecampeon} torneo(s) como vicecampeón`}
-                        >
-                          🥈
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </div>
-                <p className="font-['Roboto:Regular',sans-serif] text-white text-sm w-16 text-center">
-                  {player.puntos}
-                </p>
-                <p className="font-['Roboto:Regular',sans-serif] text-white text-sm w-12 text-center">
-                  {player.partidosJugados}
-                </p>
-              </div>
-            </div>
-          ))}
-        </>
-      )}
+      <p
+        className="font-['Roboto:Regular',sans-serif] text-center"
+        style={{
+          marginTop: "12px",
+          fontSize: "10px",
+          color: "rgba(255,255,255,0.6)",
+        }}
+      >
+        PJ: Partidos Jugados · G: Ganados · P: Perdidos · PTS: Puntos (3 por
+        ganado, 1 por perdido) · Racha: victorias seguidas
+      </p>
     </div>
   );
 }
@@ -292,14 +483,8 @@ function QRPanel() {
 }
 
 export default function ResponsiveRankingLayout() {
-  const [rankingGlobalData, setRankingGlobalData] = useState<JugadorRanking[]>(
-    []
-  );
-  const [rankingCompetenciaData, setRankingCompetenciaData] = useState<
-    JugadorRanking[]
-  >([]);
-  const [isLoadingGlobal, setIsLoadingGlobal] = useState(false);
-  const [isLoadingCompetencia, setIsLoadingCompetencia] = useState(false);
+  const [jugadores, setJugadores] = useState<JugadorRanking[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [categoria, setCategoria] = useState("8");
   const [sexo, setSexo] = useState("M");
   const [categoriasConDatos, setCategoriasConDatos] = useState<
@@ -308,24 +493,26 @@ export default function ResponsiveRankingLayout() {
   const [competenciaSeleccionada, setCompetenciaSeleccionada] = useState<
     string | number
   >("");
+  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState("");
+  const [vista, setVista] = useState<"global" | "competencia">("global");
 
-  // Obtener categorías que tienen datos y competencias
+  // Cuántas combinaciones vacías seguidas se saltearon. Evita quedar girando
+  // para siempre si el equipo elegido no tiene jugadores en ninguna categoría.
+  const combosVaciosRef = useRef(0);
+
+  // Datos iniciales: categorías con datos y última competencia
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Cargar categorías con datos
         const categorias = await getCategoriasConDatos();
         setCategoriasConDatos(categorias);
-        // Si hay categorías, establecer la primera como inicial
         if (categorias.length > 0) {
           setCategoria(categorias[0].categoria.toString());
           setSexo(categorias[0].sexo);
         }
 
-        // Cargar competencias y seleccionar la última (ya vienen ordenadas por fechaInicio desc del backend)
-        const competenciasResponse = await getCompetencias({
-          limit: 1,
-        });
+        const competenciasResponse = await getCompetencias({ limit: 1 });
         if (competenciasResponse.data.length > 0) {
           setCompetenciaSeleccionada(competenciasResponse.data[0].id);
         }
@@ -337,7 +524,28 @@ export default function ResponsiveRankingLayout() {
     loadInitialData();
   }, []);
 
-  // Generar combinaciones solo de categorías que tienen datos
+  // Los equipos se piden una sola vez: sirven para el select y para los logos
+  useEffect(() => {
+    const loadEquipos = async () => {
+      try {
+        setEquipos(await getEquipos());
+      } catch (error) {
+        console.error("❌ Error al obtener equipos:", error);
+      }
+    };
+    loadEquipos();
+  }, []);
+
+  const logosPorEquipo = useMemo(() => {
+    const mapa = new Map<string, string | null>();
+    equipos.forEach((equipo) => mapa.set(String(equipo.id), equipo.logo));
+    return mapa;
+  }, [equipos]);
+
+  const logoDeEquipo = (equipoId: string | number | null) =>
+    equipoId ? logosPorEquipo.get(String(equipoId)) || null : null;
+
+  // Combinaciones de categoría/sexo que tienen datos
   const combinaciones = React.useMemo(() => {
     return categoriasConDatos.map((cat) => ({
       categoria: cat.categoria.toString(),
@@ -345,74 +553,77 @@ export default function ResponsiveRankingLayout() {
     }));
   }, [categoriasConDatos]);
 
-  // Índice actual en el array de combinaciones
   const [indiceActual, setIndiceActual] = useState(0);
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
-  const tiempoTotal = 10000; // 10 segundos en milisegundos
+  const tiempoTotal = 10000; // 10 segundos
 
-  // Cargar datos del ranking global
+  // Al cambiar de equipo se reinicia el conteo de combinaciones vacías
   useEffect(() => {
-    // Solo cargar si hay combinaciones disponibles
-    if (combinaciones.length === 0) {
-      return;
-    }
+    combosVaciosRef.current = 0;
+  }, [equipoSeleccionado, vista]);
 
-    const loadRankingGlobal = async () => {
-      setIsLoadingGlobal(true);
+  // Cargar el ranking según la vista, la combinación actual y el equipo
+  useEffect(() => {
+    if (combinaciones.length === 0) return;
+    if (vista === "competencia" && !competenciaSeleccionada) return;
+
+    const loadRanking = async () => {
+      setIsLoading(true);
       try {
         const combo = combinaciones[indiceActual];
-        const data = await getRankingGlobal(combo.categoria, combo.sexo);
-        setRankingGlobalData(data);
+        const data =
+          vista === "competencia"
+            ? await getRankingCompetencia(
+                competenciaSeleccionada,
+                combo.categoria,
+                combo.sexo,
+                equipoSeleccionado || null
+              )
+            : await getRankingGlobal(
+                combo.categoria,
+                combo.sexo,
+                equipoSeleccionado || null
+              );
+        setJugadores(data);
         setCategoria(combo.categoria);
         setSexo(combo.sexo);
-      } catch (error: any) {
-        console.error("❌ Error al obtener ranking global:", error);
-        // Si es un error 404 (no hay datos), saltar a la siguiente categoría
-        if (error?.response?.status === 404) {
-          setIndiceActual((prev) => (prev + 1) % combinaciones.length);
+
+        // Con un equipo filtrado, la mayoría de las categorías van a estar
+        // vacías: se saltea a la siguiente en vez de esperar los 10 segundos.
+        // El contador evita girar sin fin si el equipo no tiene jugadores en
+        // ninguna categoría.
+        if (
+          data.length === 0 &&
+          equipoSeleccionado &&
+          combinaciones.length > 1
+        ) {
+          if (combosVaciosRef.current < combinaciones.length - 1) {
+            combosVaciosRef.current += 1;
+            setIndiceActual((prev) => (prev + 1) % combinaciones.length);
+          }
+        } else {
+          combosVaciosRef.current = 0;
         }
-        setRankingGlobalData([]);
+      } catch (error) {
+        console.error("❌ Error al obtener el ranking:", error);
+        setJugadores([]);
       } finally {
-        setIsLoadingGlobal(false);
+        setIsLoading(false);
       }
     };
 
-    loadRankingGlobal();
-  }, [indiceActual, combinaciones]);
+    loadRanking();
+  }, [
+    indiceActual,
+    combinaciones,
+    vista,
+    competenciaSeleccionada,
+    equipoSeleccionado,
+  ]);
 
-  // Cargar datos del ranking de competencia
+  // Rotación automática de categoría/sexo cada 10 segundos
   useEffect(() => {
-    // Solo cargar si hay combinaciones disponibles y competencia seleccionada
-    if (combinaciones.length === 0 || !competenciaSeleccionada) {
-      return;
-    }
-
-    const loadRankingCompetencia = async () => {
-      setIsLoadingCompetencia(true);
-      try {
-        const combo = combinaciones[indiceActual];
-        const data = await getRankingCompetencia(
-          competenciaSeleccionada,
-          combo.categoria,
-          combo.sexo
-        );
-        setRankingCompetenciaData(data);
-      } catch (error: any) {
-        console.error("❌ Error al obtener ranking de competencia:", error);
-        setRankingCompetenciaData([]);
-      } finally {
-        setIsLoadingCompetencia(false);
-      }
-    };
-
-    loadRankingCompetencia();
-  }, [indiceActual, combinaciones, competenciaSeleccionada]);
-
-  // Cambiar automáticamente cada 10 segundos (solo si hay combinaciones)
-  useEffect(() => {
-    if (combinaciones.length === 0) {
-      return;
-    }
+    if (combinaciones.length === 0) return;
 
     const interval = setInterval(() => {
       setIndiceActual((prev) => (prev + 1) % combinaciones.length);
@@ -421,18 +632,12 @@ export default function ResponsiveRankingLayout() {
     return () => clearInterval(interval);
   }, [combinaciones.length, tiempoTotal]);
 
-  // Actualizar tiempo transcurrido cada 100ms para suavidad
+  // Barra de progreso de la rotación
   useEffect(() => {
-    // Reiniciar el tiempo cuando cambia la categoría
     setTiempoTranscurrido(0);
 
     const interval = setInterval(() => {
-      setTiempoTranscurrido((prev) => {
-        if (prev >= tiempoTotal) {
-          return 0;
-        }
-        return prev + 100; // Actualizar cada 100ms para suavidad
-      });
+      setTiempoTranscurrido((prev) => (prev >= tiempoTotal ? 0 : prev + 100));
     }, 100);
 
     return () => clearInterval(interval);
@@ -467,22 +672,18 @@ export default function ResponsiveRankingLayout() {
         <div className="container mx-auto px-4 pb-12">
           <div className="flex flex-wrap justify-center gap-4 lg:gap-6 items-stretch lg:flex-nowrap">
             <RankingTable
-              title="Ranking (Global)"
               categoria={categoria}
               sexo={sexo}
-              players={rankingGlobalData}
-              isLoading={isLoadingGlobal}
+              players={jugadores}
+              isLoading={isLoading}
               tiempoTranscurrido={tiempoTranscurrido}
               tiempoTotal={tiempoTotal}
-            />
-            <RankingTable
-              title="Ranking (En Competencia)"
-              categoria={categoria}
-              sexo={sexo}
-              players={rankingCompetenciaData}
-              isLoading={isLoadingCompetencia}
-              tiempoTranscurrido={tiempoTranscurrido}
-              tiempoTotal={tiempoTotal}
+              vista={vista}
+              onVistaChange={setVista}
+              equipos={equipos}
+              equipoSeleccionado={equipoSeleccionado}
+              onEquipoChange={setEquipoSeleccionado}
+              logoDeEquipo={logoDeEquipo}
             />
             <QRPanel />
           </div>

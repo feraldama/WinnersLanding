@@ -6,6 +6,7 @@ import { jugadoresRouter } from "./routes/jugadores";
 import { categoriasRouter } from "./routes/categorias";
 import { rankingsRouter } from "./routes/rankings";
 import { competenciaRouter } from "./routes/competencia";
+import { equiposRouter } from "./routes/equipos";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -65,6 +66,7 @@ app.use("/api/jugadores", jugadoresRouter);
 app.use("/api/categorias", categoriasRouter);
 app.use("/api/rankings", rankingsRouter);
 app.use("/api/competencias", competenciaRouter);
+app.use("/api/equipos", equiposRouter);
 
 // Manejo de errores
 app.use(errorHandler);

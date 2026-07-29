@@ -43,18 +43,96 @@ const estiloTruncado: React.CSSProperties = {
   minWidth: 0,
 };
 
-const estiloSelect: React.CSSProperties = {
-  backgroundColor: "#1a1a1a",
-  border: "1px solid rgba(254, 151, 9, 0.5)",
-  color: "#fe9709",
-  fontSize: "12px",
-  borderRadius: "6px",
-  padding: "6px 8px",
-  textTransform: "uppercase",
-  cursor: "pointer",
+const centrado: React.CSSProperties = { textAlign: "center" };
+
+/** Oro / plata / bronce para el podio; naranja para el resto. */
+const colorDePosicion = (posicion: number) => {
+  if (posicion === 1) return "#ffd54a";
+  if (posicion === 2) return "#d8dde4";
+  if (posicion === 3) return "#d99a5b";
+  return "#fe9709";
 };
 
-const centrado: React.CSSProperties = { textAlign: "center" };
+/**
+ * Los selects nativos no se pueden maquillar con estilos inline (hacen falta
+ * :hover/:focus y ::option), así que van en un <style> propio en vez de tocar
+ * el index.css compilado.
+ */
+const CHEVRON =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2012%2012'%20fill='none'%20stroke='%23fe9709'%20stroke-width='1.7'%20stroke-linecap='round'%3E%3Cpath%20d='M2.5%204.5L6%208L9.5%204.5'/%3E%3C/svg%3E";
+
+const ESTILOS_RANKING = `
+.wr-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 14px;
+  margin: 2px 0 18px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(254, 151, 9, 0.22);
+  border-radius: 10px;
+}
+.wr-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 160px;
+  max-width: 230px;
+  min-width: 0;
+}
+.wr-filtro-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  padding-left: 2px;
+}
+.wr-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  background-color: #141414;
+  background-image: url("${CHEVRON}");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 11px 11px;
+  border: 1px solid rgba(254, 151, 9, 0.45);
+  border-radius: 8px;
+  color: #fe9709;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 9px 30px 9px 12px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+.wr-select:hover {
+  border-color: #fe9709;
+  background-color: #1d1a15;
+}
+.wr-select:focus {
+  outline: none;
+  border-color: #fe9709;
+  box-shadow: 0 0 0 3px rgba(254, 151, 9, 0.22);
+}
+.wr-select option {
+  background-color: #141414;
+  color: #f2f2f2;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.wr-fila {
+  transition: background-color 0.15s ease;
+}
+.wr-fila:hover {
+  background-color: rgba(254, 151, 9, 0.07);
+}
+`;
 
 function NavigationMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -222,40 +300,43 @@ function RankingTable({
       </div>
 
       {/* Filtros */}
-      <div
-        className="flex justify-center mb-3"
-        style={{ gap: "8px", flexWrap: "wrap" }}
-      >
-        <select
-          value={vista}
-          onChange={(e) =>
-            onVistaChange(e.target.value as "global" | "competencia")
-          }
-          className="font-['Goldman:Regular',sans-serif]"
-          style={estiloSelect}
-          aria-label="Vista del ranking"
-        >
-          <option value="global">Global</option>
-          <option value="competencia">En competencia</option>
-        </select>
-        <select
-          value={equipoSeleccionado}
-          onChange={(e) => onEquipoChange(e.target.value)}
-          className="font-['Goldman:Regular',sans-serif]"
-          style={estiloSelect}
-          aria-label="Filtrar por equipo"
-        >
-          <option value="">Todos los equipos</option>
-          {equipos.map((equipo) => (
-            <option key={equipo.id} value={String(equipo.id)}>
-              {equipo.nombre}
-            </option>
-          ))}
-        </select>
+      <div className="wr-filtros">
+        <label className="wr-filtro">
+          <span className="wr-filtro-label font-['Goldman:Regular',sans-serif]">
+            Vista
+          </span>
+          <select
+            value={vista}
+            onChange={(e) =>
+              onVistaChange(e.target.value as "global" | "competencia")
+            }
+            className="wr-select font-['Goldman:Regular',sans-serif]"
+          >
+            <option value="global">Global</option>
+            <option value="competencia">En competencia</option>
+          </select>
+        </label>
+        <label className="wr-filtro">
+          <span className="wr-filtro-label font-['Goldman:Regular',sans-serif]">
+            Equipo
+          </span>
+          <select
+            value={equipoSeleccionado}
+            onChange={(e) => onEquipoChange(e.target.value)}
+            className="wr-select font-['Goldman:Regular',sans-serif]"
+          >
+            <option value="">Todos los equipos</option>
+            {equipos.map((equipo) => (
+              <option key={equipo.id} value={String(equipo.id)}>
+                {equipo.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {/* Barra de progreso de la rotación automática */}
-      <div className="mb-3 h-2 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#3a3226]">
+      <div className="mb-4 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#3a3226]">
         <div
           className="h-full bg-[#fe9709] transition-all duration-100 ease-linear rounded-full"
           style={{ width: `${Math.min(porcentaje, 100)}%` }}
@@ -301,15 +382,19 @@ function RankingTable({
           {!isLoading &&
             players.map((player, index) => {
               const logo = logoDeEquipo(player.equipoId);
+              const posicion = player.position || index + 1;
               return (
                 <div
                   key={player.id || index}
-                  className={
-                    index < players.length - 1
-                      ? "border-b border-[#FE9709]"
-                      : ""
-                  }
-                  style={{ padding: "6px 12px" }}
+                  className="wr-fila"
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    borderBottom:
+                      index < players.length - 1
+                        ? "1px solid rgba(254, 151, 9, 0.35)"
+                        : "none",
+                  }}
                 >
                   <div
                     className="font-['Roboto:Regular',sans-serif] text-white text-sm"
@@ -317,10 +402,10 @@ function RankingTable({
                   >
                     {/* Posición */}
                     <p
-                      className="font-['Righteous:Regular',sans-serif] text-[#fe9709] text-xl"
-                      style={centrado}
+                      className="font-['Righteous:Regular',sans-serif] text-xl"
+                      style={{ ...centrado, color: colorDePosicion(posicion) }}
                     >
-                      {player.position || index + 1}
+                      {posicion}
                     </p>
 
                     {/* Jugador + trofeos */}
@@ -545,12 +630,16 @@ export default function ResponsiveRankingLayout() {
   const logoDeEquipo = (equipoId: string | number | null) =>
     equipoId ? logosPorEquipo.get(String(equipoId)) || null : null;
 
-  // Combinaciones de categoría/sexo que tienen datos
+  // Combinaciones de categoría/sexo que tienen datos. Se descartan las
+  // inválidas (categoría 0 / sexo vacío de clientes sin cargar): pedir su
+  // ranking devuelve 404 y no hay nada que mostrar.
   const combinaciones = React.useMemo(() => {
-    return categoriasConDatos.map((cat) => ({
-      categoria: cat.categoria.toString(),
-      sexo: cat.sexo,
-    }));
+    return categoriasConDatos
+      .filter((cat) => Number(cat.categoria) > 0 && Boolean(cat.sexo))
+      .map((cat) => ({
+        categoria: cat.categoria.toString(),
+        sexo: cat.sexo,
+      }));
   }, [categoriasConDatos]);
 
   const [indiceActual, setIndiceActual] = useState(0);
@@ -569,9 +658,11 @@ export default function ResponsiveRankingLayout() {
 
     const loadRanking = async () => {
       setIsLoading(true);
+      const combo = combinaciones[indiceActual];
+      let data: JugadorRanking[] = [];
+
       try {
-        const combo = combinaciones[indiceActual];
-        const data =
+        data =
           vista === "competencia"
             ? await getRankingCompetencia(
                 competenciaSeleccionada,
@@ -584,32 +675,29 @@ export default function ResponsiveRankingLayout() {
                 combo.sexo,
                 equipoSeleccionado || null
               );
-        setJugadores(data);
-        setCategoria(combo.categoria);
-        setSexo(combo.sexo);
-
-        // Con un equipo filtrado, la mayoría de las categorías van a estar
-        // vacías: se saltea a la siguiente en vez de esperar los 10 segundos.
-        // El contador evita girar sin fin si el equipo no tiene jugadores en
-        // ninguna categoría.
-        if (
-          data.length === 0 &&
-          equipoSeleccionado &&
-          combinaciones.length > 1
-        ) {
-          if (combosVaciosRef.current < combinaciones.length - 1) {
-            combosVaciosRef.current += 1;
-            setIndiceActual((prev) => (prev + 1) % combinaciones.length);
-          }
-        } else {
-          combosVaciosRef.current = 0;
-        }
       } catch (error) {
+        // El 404 de "no hay datos" es parte del flujo normal de la rotación:
+        // se trata igual que una categoría vacía y se saltea.
         console.error("❌ Error al obtener el ranking:", error);
-        setJugadores([]);
-      } finally {
-        setIsLoading(false);
       }
+
+      setJugadores(data);
+      setCategoria(combo.categoria);
+      setSexo(combo.sexo);
+
+      // Una categoría sin jugadores (o que devolvió error) se saltea en vez de
+      // esperar los 10 segundos: pasa seguido al filtrar por equipo. El
+      // contador evita girar sin fin si ninguna combinación tiene datos.
+      if (data.length === 0 && combinaciones.length > 1) {
+        if (combosVaciosRef.current < combinaciones.length - 1) {
+          combosVaciosRef.current += 1;
+          setIndiceActual((prev) => (prev + 1) % combinaciones.length);
+        }
+      } else {
+        combosVaciosRef.current = 0;
+      }
+
+      setIsLoading(false);
     };
 
     loadRanking();
@@ -645,6 +733,8 @@ export default function ResponsiveRankingLayout() {
 
   return (
     <div className="min-h-screen w-full bg-black relative overflow-hidden">
+      <style>{ESTILOS_RANKING}</style>
+
       {/* Background Image - Fixed positioning to cover entire viewport */}
       <div className="fixed inset-0 w-full h-full overflow-clip pointer-events-none">
         <img

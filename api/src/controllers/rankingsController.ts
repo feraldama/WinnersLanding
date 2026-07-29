@@ -397,6 +397,12 @@ export const rankingsController = {
         INNER JOIN PartidoJugador pj ON c.ClienteId = pj.ClienteId
         INNER JOIN Partido p ON pj.PartidoId = p.PartidoId AND p.PartidoSexo != 'X'
         WHERE pj.PartidoJugadorResultado IS NOT NULL AND pj.PartidoJugadorResultado != ''
+          -- Sin estos filtros, los clientes con categoría/sexo sin cargar caen
+          -- todos en una combinación "categoría 0" que después devuelve 404 al
+          -- pedir su ranking y deja la pantalla en blanco 10 segundos.
+          AND c.ClienteCategoria IS NOT NULL
+          AND c.ClienteCategoria > 0
+          AND c.ClienteSexo IN ('M', 'F')
         GROUP BY c.ClienteCategoria, c.ClienteSexo
         ORDER BY c.ClienteCategoria DESC, c.ClienteSexo ASC
       `;

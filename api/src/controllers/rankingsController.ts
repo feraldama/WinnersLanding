@@ -98,7 +98,8 @@ const mapearJugador = (
 ) => ({
   id: jugador.id,
   nombre: limpiarNombre(jugador.nombre),
-  categoria: parseInt(jugador.categoria) || parseInt(categoriaFallback) || 0,
+  // Texto: hay categorías con nombre además de las numéricas ('INICIAL').
+  categoria: String(jugador.categoria ?? "").trim() || categoriaFallback,
   sexo: jugador.sexo,
   equipoId: jugador.equipoId ?? null,
   equipoNombre: jugador.equipoNombre ?? null,
@@ -397,20 +398,29 @@ export const rankingsController = {
         INNER JOIN PartidoJugador pj ON c.ClienteId = pj.ClienteId
         INNER JOIN Partido p ON pj.PartidoId = p.PartidoId AND p.PartidoSexo != 'X'
         WHERE pj.PartidoJugadorResultado IS NOT NULL AND pj.PartidoJugadorResultado != ''
-          -- Sin estos filtros, los clientes con categoría/sexo sin cargar caen
-          -- todos en una combinación "categoría 0" que después devuelve 404 al
-          -- pedir su ranking y deja la pantalla en blanco 10 segundos.
+          -- Sin estos filtros, los clientes que todavía no tienen categoría o
+          -- sexo cargado forman una combinación sin ranking posible: pedirla
+          -- devuelve 404 y deja la pantalla en blanco 10 segundos.
           AND c.ClienteCategoria IS NOT NULL
-          AND c.ClienteCategoria > 0
+          AND TRIM(c.ClienteCategoria) != ''
           AND c.ClienteSexo IN ('M', 'F')
         GROUP BY c.ClienteCategoria, c.ClienteSexo
-        ORDER BY c.ClienteCategoria DESC, c.ClienteSexo ASC
+        -- Las categorías no son sólo números ('INICIAL' es una categoría real),
+        -- así que el orden alfabético no sirve: primero las numéricas de mayor
+        -- a menor, después las de texto.
+        ORDER BY
+          (c.ClienteCategoria REGEXP '^[0-9]+$') DESC,
+          CAST(c.ClienteCategoria AS UNSIGNED) DESC,
+          c.ClienteCategoria ASC,
+          c.ClienteSexo ASC
       `;
 
       const results = await queryAsync(query, []);
 
       const categorias = results.map((item: any) => ({
-        categoria: parseInt(item.categoria) || 0,
+        // Texto, no número: parseInt('INICIAL') daba 0 y esa categoría
+        // terminaba pidiendo un ranking inexistente.
+        categoria: String(item.categoria ?? "").trim(),
         sexo: item.sexo,
         cantidadJugadores: Number(item.cantidadJugadores) || 0,
       }));

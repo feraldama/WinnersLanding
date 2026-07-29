@@ -4,7 +4,8 @@ import type { AxiosError } from "axios";
 export interface JugadorRanking {
   id: string | number;
   nombre: string;
-  categoria: number;
+  /** Texto, no número: además de "8", "7"… existen categorías como "INICIAL". */
+  categoria: string;
   sexo: string;
   equipoId: string | number | null;
   equipoNombre: string | null;
@@ -21,7 +22,7 @@ export interface JugadorRanking {
 }
 
 export interface CategoriaConDatos {
-  categoria: number;
+  categoria: string;
   sexo: string;
   cantidadJugadores: number;
 }

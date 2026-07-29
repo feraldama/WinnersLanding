@@ -631,15 +631,16 @@ export default function ResponsiveRankingLayout() {
     equipoId ? logosPorEquipo.get(String(equipoId)) || null : null;
 
   // Combinaciones de categoría/sexo que tienen datos. Se descartan las
-  // inválidas (categoría 0 / sexo vacío de clientes sin cargar): pedir su
-  // ranking devuelve 404 y no hay nada que mostrar.
+  // incompletas (clientes sin categoría o sexo cargado): pedir su ranking
+  // devuelve 404 y no hay nada que mostrar. La categoría se compara como
+  // texto: "INICIAL" es tan válida como "8".
   const combinaciones = React.useMemo(() => {
     return categoriasConDatos
-      .filter((cat) => Number(cat.categoria) > 0 && Boolean(cat.sexo))
       .map((cat) => ({
-        categoria: cat.categoria.toString(),
+        categoria: String(cat.categoria ?? "").trim(),
         sexo: cat.sexo,
-      }));
+      }))
+      .filter((cat) => cat.categoria !== "" && Boolean(cat.sexo));
   }, [categoriasConDatos]);
 
   const [indiceActual, setIndiceActual] = useState(0);
